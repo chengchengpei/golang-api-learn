@@ -1,14 +1,3 @@
-/*
-This is for fun and learn.
-Refer the following tutorials:
-    https://thenewstack.io/make-a-restful-json-api-go/
-
-
-Todo:
-    Add DB.
-    Add logic to generate ramdom code.
-
-*/
 package main
 
 import (
@@ -18,13 +7,27 @@ import (
     "net/http"
 
     "github.com/gorilla/mux"
-    "time"
+    // "time"
+	"encoding/json"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"math/rand"
 )
+
+var letters = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
+
+func randCode() string {
+	b := make([]rune, 6)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
 
 type Link struct {
     ShortURL string
     LongURL string
-    Created time.Time
+    // Created time.Time
 }
 
 type Route struct {
@@ -75,11 +78,63 @@ var routes = Routes{
 
 
 func Index(w http.ResponseWriter, r *http.Request) {
+	// Set status code explicitly
+	w.WriteHeader(http.StatusOK)
+
     fmt.Fprintf(w, "Hello index, %q", html.EscapeString(r.URL.Path))
 }
 
 func UrlShortener(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+	r.ParseForm() // Parse the request body
+	longUrl := r.Form.Get("longUrl") // longUrl will be '' if no longUrl in the requst
+
+	/* DB operations */
+	session, err := mgo.Dial("localhost")
+	if err != nil {
+	    panic(err)
+	}
+	defer session.Close()
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+
+	c := session.DB("test").C("link")
+	result := Link{}
+	err = c.Find(bson.M{"longurl": longUrl}).One(&result)
+	if err == nil {
+		fmt.Println("Found?")
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			panic(err)
+		}
+		return
+	}
+	code := "" 
+	fmt.Println("generating code...")
+
+	for {
+		// Find
+		code = randCode()
+		result := Link{}
+		err = c.Find(bson.M{"shorturl": code}).One(&result)
+		if err != nil && err == mgo.ErrNotFound {
+			fmt.Println(err)
+			err2 := c.Insert(&Link{code, longUrl})
+			if err2 != nil {
+			    fmt.Println(err2)
+			} else {
+				break
+			}
+		}
+	}
+
+	obj :=  Link{
+		LongURL: longUrl,
+		ShortURL: code,
+	}
+
+    if err := json.NewEncoder(w).Encode(obj); err != nil {
+	    panic(err)
+	}
 }
 
 func Lookup(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +142,6 @@ func Lookup(w http.ResponseWriter, r *http.Request) {
     code := vars["code"]
     fmt.Fprintln(w, "code to lookup:", code)
 }
-
 
 func main() {
     router := NewRouter()
