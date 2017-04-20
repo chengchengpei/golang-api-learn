@@ -8,20 +8,20 @@ import (
 
     "github.com/gorilla/mux"
     // "time"
-	"encoding/json"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"math/rand"
+    "encoding/json"
+    "gopkg.in/mgo.v2"
+    "gopkg.in/mgo.v2/bson"
+    "math/rand"
 )
 
 var letters = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
 
 func randCode() string {
-	b := make([]rune, 6)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
+    b := make([]rune, 6)
+    for i := range b {
+        b[i] = letters[rand.Intn(len(letters))]
+    }
+    return string(b)
 }
 
 type Link struct {
@@ -78,63 +78,62 @@ var routes = Routes{
 
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	// Set status code explicitly
-	w.WriteHeader(http.StatusOK)
-
+    // Set status code explicitly
+    w.WriteHeader(http.StatusOK)
     fmt.Fprintf(w, "Hello index, %q", html.EscapeString(r.URL.Path))
 }
 
 func UrlShortener(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm() // Parse the request body
-	longUrl := r.Form.Get("longUrl") // longUrl will be '' if no longUrl in the requst
+    r.ParseForm() // Parse the request body
+    longUrl := r.Form.Get("longUrl") // longUrl will be '' if no longUrl in the requst
 
-	/* DB operations */
-	session, err := mgo.Dial("localhost")
-	if err != nil {
-	    panic(err)
-	}
-	defer session.Close()
+    /* DB operations */
+    session, err := mgo.Dial("localhost")
+    if err != nil {
+        panic(err)
+    }
+    defer session.Close()
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+    w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+    w.WriteHeader(http.StatusOK)
 
-	c := session.DB("test").C("link")
-	result := Link{}
-	err = c.Find(bson.M{"longurl": longUrl}).One(&result)
-	if err == nil {
-		fmt.Println("Found?")
-		if err := json.NewEncoder(w).Encode(result); err != nil {
-			panic(err)
-		}
-		return
-	}
-	code := "" 
-	fmt.Println("generating code...")
+    c := session.DB("test").C("link")
+    result := Link{}
+    err = c.Find(bson.M{"longurl": longUrl}).One(&result)
+    if err == nil {
+        fmt.Println("Found?")
+        if err := json.NewEncoder(w).Encode(result); err != nil {
+            panic(err)
+        }
+        return
+    }
+    code := "" 
+    fmt.Println("generating code...")
 
-	for {
-		// Find
-		code = randCode()
-		result := Link{}
-		err = c.Find(bson.M{"shorturl": code}).One(&result)
-		if err != nil && err == mgo.ErrNotFound {
-			fmt.Println(err)
-			err2 := c.Insert(&Link{code, longUrl})
-			if err2 != nil {
-			    fmt.Println(err2)
-			} else {
-				break
-			}
-		}
-	}
+    for {
+        // Find
+        code = randCode()
+        result := Link{}
+        err = c.Find(bson.M{"shorturl": code}).One(&result)
+        if err != nil && err == mgo.ErrNotFound {
+            fmt.Println(err)
+            err2 := c.Insert(&Link{code, longUrl})
+            if err2 != nil {
+                fmt.Println(err2)
+            } else {
+                break
+            }
+        }
+    }
 
-	obj :=  Link{
-		LongURL: longUrl,
-		ShortURL: code,
-	}
+    obj :=  Link{
+        LongURL: longUrl,
+        ShortURL: code,
+    }
 
     if err := json.NewEncoder(w).Encode(obj); err != nil {
-	    panic(err)
-	}
+        panic(err)
+    }
 }
 
 func Lookup(w http.ResponseWriter, r *http.Request) {
