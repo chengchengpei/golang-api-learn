@@ -150,17 +150,14 @@ func Lookup(w http.ResponseWriter, r *http.Request) {
     result := Link{}
     err = c.Find(bson.M{"shorturl": code}).One(&result)
     if err != nil && err == mgo.ErrNotFound {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintln(w, "code not found:", code)
+        w.WriteHeader(http.StatusNotFound)
+        fmt.Fprintln(w, "code not found:", code)
     } else {
-		http.Redirect(w, r, result.LongURL, 301)
-	}
-
+        http.Redirect(w, r, result.LongURL, 301)
+    }
 }
 
 func main() {
     router := NewRouter()
     log.Fatal(http.ListenAndServe(":8000", router))
 }
-
-
