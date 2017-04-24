@@ -19,4 +19,9 @@ Refactor codes into several files. Now not necessary, too few codes.
 Set GOPATH and GOBIN in .bashrc
 Run `go get` to install dependencies.
 Run `go run main.go` to run the server.
+Run `mongod` to start standalone mongod instance for dev/testing.
+
+# http 
+## status code
+https://golang.org/src/net/http/status.go
 
