@@ -70,7 +70,7 @@ var routes = Routes{
 
     Route{
         "redirect",
-        "POST",
+        "GET",
         "/{code}",
         Lookup,
     },
@@ -139,7 +139,23 @@ func UrlShortener(w http.ResponseWriter, r *http.Request) {
 func Lookup(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
     code := vars["code"]
-    fmt.Fprintln(w, "code to lookup:", code)
+
+    session, err := mgo.Dial("localhost")
+    if err != nil {
+        panic(err)
+    }
+    defer session.Close()
+
+    c := session.DB("test").C("link")
+    result := Link{}
+    err = c.Find(bson.M{"shorturl": code}).One(&result)
+    if err != nil && err == mgo.ErrNotFound {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintln(w, "code not found:", code)
+    } else {
+		http.Redirect(w, r, result.LongURL, 301)
+	}
+
 }
 
 func main() {
